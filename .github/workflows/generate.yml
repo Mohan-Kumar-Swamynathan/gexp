@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
   schedule:
-    - cron: "0 4 * * *"   # daily at 4am UTC = 9:30am IST
+    - cron: "0 4 * * *"
 
 jobs:
   generate:
@@ -29,13 +29,43 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
+      - name: Debug - check imports
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: |
+          echo "=== Python version ==="
+          python --version
+          echo "=== Working dir ==="
+          pwd && ls -la
+          echo "=== src/ contents ==="
+          ls -la src/
+          echo "=== Test imports ==="
+          cd ${{ github.workspace }}
+          python -c "
+import sys
+sys.path.insert(0, 'src')
+print('sys.path:', sys.path[:3])
+import llm_client
+print('llm_client OK')
+import topic_finder
+print('topic_finder OK')
+import script_generator
+print('script_generator OK')
+import image_generator
+print('image_generator OK')
+import video_builder
+print('video_builder OK')
+print('ALL IMPORTS OK')
+"
+
       - name: Generate video
         env:
-          GEMINI_KEY:    ${{ secrets.GEMINI_KEY }}
-          GROQ_API_KEY:  ${{ secrets.GROQ_API_KEY }}
-          PYTHONPATH:    ${{ github.workspace }}/src
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/src
         run: |
-          set -e
           cd ${{ github.workspace }}
           TOPIC="${{ github.event.inputs.topic }}"
           if [ -n "$TOPIC" ]; then
