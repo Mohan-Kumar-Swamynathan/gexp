@@ -1,0 +1,57 @@
+name: Generate Tamil Ghibli Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Override topic (leave blank for auto-pick)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 4 * * *"   # daily at 4am UTC = 9:30am IST
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Generate video
+        env:
+          GEMINI_KEY:    ${{ secrets.GEMINI_KEY }}
+          GROQ_API_KEY:  ${{ secrets.GROQ_API_KEY }}
+        run: |
+          TOPIC="${{ github.event.inputs.topic }}"
+          if [ -n "$TOPIC" ]; then
+            python src/main.py --topic "$TOPIC"
+          else
+            python src/main.py
+          fi
+
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghibli-video-${{ github.run_number }}
+          path: output/**/final.mp4
+          retention-days: 7
+
+      - name: Commit used_topics.json update
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/used_topics.json
+          git diff --cached --quiet || git commit -m "chore: update used topics [skip ci]"
+          git push
